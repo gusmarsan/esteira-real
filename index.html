@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Esteira Real</title>
+  <style>
+    :root {
+      --bg: #070b12;
+      --panel: #111827;
+      --panel-2: #182235;
+      --text: #f7fafc;
+      --muted: #9aa7bd;
+      --accent: #00e0ff;
+      --accent-2: #5cffb1;
+      --danger: #ff6b7a;
+      --border: rgba(255,255,255,.12);
+      --shadow: 0 28px 70px rgba(0,0,0,.38);
+      --digital: "Courier New", "Lucida Console", "Monaco", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(0,224,255,.18), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(92,255,177,.12), transparent 35%),
+        linear-gradient(150deg, #060912, #0a1020 52%, #121c31);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 18px;
+    }
+
+    .app {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 48px);
+      letter-spacing: -0.06em;
+      line-height: .95;
+    }
+
+    .subtitle {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .pill {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.05);
+      border-radius: 999px;
+      padding: 10px 14px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (min-width: 1020px) {
+      .layout {
+        grid-template-columns: .8fr 1.2fr;
+        align-items: start;
+      }
+    }
+
+    .card {
+      background: rgba(17, 24, 39, .88);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      overflow: hidden;
+    }
+
+    .card-inner { padding: 18px; }
+
+    .stopwatch {
+      position: relative;
+      min-height: 326px;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.06), transparent),
+        var(--panel);
+    }
+
+    .watch-ring {
+      width: min(74vw, 296px);
+      height: min(74vw, 296px);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        conic-gradient(from 180deg, var(--accent-2) 0deg, var(--accent) var(--angle), rgba(255,255,255,.10) var(--angle), rgba(255,255,255,.10) 360deg);
+      box-shadow:
+        0 0 40px rgba(0,224,255,.16),
+        inset 0 0 0 1px rgba(255,255,255,.08);
+      transition: background .2s ease;
+    }
+
+    .watch-face {
+      width: calc(100% - 18px);
+      height: calc(100% - 18px);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 50% 35%, rgba(255,255,255,.08), transparent 33%),
+        #070b12;
+      border: 1px solid rgba(255,255,255,.10);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 28px;
+    }
+
+    .watch-label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .18em;
+      margin-bottom: 10px;
+    }
+
+    .watch-distance {
+      font-family: var(--digital);
+      font-size: clamp(44px, 10vw, 72px);
+      font-weight: 900;
+      line-height: .88;
+      letter-spacing: -0.07em;
+      color: var(--accent-2);
+      text-shadow: 0 0 28px rgba(92,255,177,.14);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .watch-unit {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      width: 100%;
+      padding: 0 18px 18px;
+    }
+
+    .metric {
+      background: rgba(255,255,255,.045);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .metric strong {
+      font-family: var(--digital);
+      font-size: clamp(17px, 4vw, 22px);
+      letter-spacing: -.03em;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 7px;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: #08101f;
+      color: var(--text);
+      padding: 12px;
+      font-size: 16px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: rgba(0,224,255,.8);
+      box-shadow: 0 0 0 4px rgba(0,224,255,.12);
+    }
+
+    button {
+      border: 0;
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      color: #06101d;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 10px 24px rgba(0,224,255,.12);
+      min-height: 44px;
+    }
+
+    button.secondary {
+      color: var(--text);
+      background: rgba(255,255,255,.07);
+      border: 1px solid var(--border);
+      box-shadow: none;
+    }
+
+    button.danger {
+      color: var(--danger);
+      background: rgba(255,107,122,.08);
+      border: 1px solid rgba(255,107,122,.26);
+      box-shadow: none;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 14px;
+      font-size: 16px;
+    }
+
+    .settings {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    @media (min-width: 700px) {
+      .settings {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .hint {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .speed-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    @media (min-width: 760px) {
+      .speed-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .speed-row {
+      display: grid;
+      grid-template-columns: 72px minmax(64px, 1fr) 40px 40px 42px 42px;
+      gap: 7px;
+      align-items: center;
+      background: rgba(255,255,255,.045);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 10px;
+    }
+
+    @media (max-width: 430px) {
+      .speed-row {
+        grid-template-columns: 66px minmax(54px, 1fr) 38px 38px;
+      }
+
+      .speed-row .mini-btn {
+        grid-column: span 1;
+      }
+    }
+
+    .speed-label {
+      font-family: var(--digital);
+      font-weight: 900;
+      font-size: 17px;
+      letter-spacing: -.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .speed-label small {
+      display: block;
+      color: var(--muted);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0;
+      margin-top: 2px;
+    }
+
+    .minute-input {
+      font-family: var(--digital);
+      text-align: center;
+      font-weight: 900;
+      font-size: 15px;
+      padding: 9px 6px;
+      border-radius: 14px;
+      min-width: 0;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -.03em;
+    }
+
+    .step-btn,
+    .mini-btn {
+      padding: 0;
+      color: var(--text);
+      background: rgba(255,255,255,.075);
+      border: 1px solid var(--border);
+      box-shadow: none;
+      line-height: 1;
+    }
+
+    .step-btn {
+      min-height: 38px;
+      border-radius: 13px;
+      font-size: 19px;
+    }
+
+    .mini-btn {
+      min-height: 28px;
+      border-radius: 10px;
+      font-size: 11px;
+      color: var(--accent-2);
+      background: rgba(92,255,177,.07);
+      border-color: rgba(92,255,177,.18);
+    }
+
+    .other-box {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 40px 40px auto;
+      gap: 8px;
+      align-items: end;
+      background: rgba(0,224,255,.05);
+      border: 1px solid rgba(0,224,255,.22);
+      border-radius: 20px;
+      padding: 12px;
+    }
+
+    .other-extra-actions {
+      display: flex;
+      gap: 6px;
+      align-items: end;
+      grid-column: 1 / -1;
+    }
+
+    .other-add {
+      width: 100%;
+      margin-top: 2px;
+    }
+
+    @media (max-width: 620px) {
+      .other-box {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .other-box .step-btn,
+      .other-box .other-add {
+        width: 100%;
+      }
+
+      .other-extra-actions {
+        grid-column: 1 / -1;
+      }
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .live-panel {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .live-box {
+      background: rgba(92,255,177,.055);
+      border: 1px solid rgba(92,255,177,.18);
+      border-radius: 18px;
+      padding: 13px;
+    }
+
+    .live-box span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .live-box strong {
+      font-family: var(--digital);
+      font-size: 20px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      margin-top: 18px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      min-width: 720px;
+      border-collapse: collapse;
+      background: rgba(0,0,0,.12);
+    }
+
+    th, td {
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      background: rgba(255,255,255,.045);
+    }
+
+    td.numeric {
+      font-family: var(--digital);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .delete-btn {
+      color: var(--danger);
+      background: transparent;
+      border: 1px solid rgba(255,107,122,.3);
+      padding: 8px 10px;
+      border-radius: 12px;
+      box-shadow: none;
+      font-size: 12px;
+      min-height: 34px;
+    }
+
+    .empty {
+      color: var(--muted);
+      padding: 22px;
+      border: 1px dashed var(--border);
+      border-radius: 18px;
+      margin-top: 16px;
+      background: rgba(255,255,255,.03);
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 14px;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Esteira Real</h1>
+        <p class="subtitle">Digite ou use +1min, +30s e +15s. A distância real atualiza automaticamente.</p>
+      </div>
+      <div class="pill">Fator padrão: × 1,10</div>
+    </header>
+
+    <section class="layout">
+      <aside class="card">
+        <div class="stopwatch">
+          <div class="watch-ring" id="watchRing" style="--angle:0deg">
+            <div class="watch-face">
+              <div>
+                <div class="watch-label">distância real</div>
+                <div class="watch-distance" id="correctedDistance">0,00</div>
+                <div class="watch-unit">km corrigidos</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <span>Distância base</span>
+            <strong id="rawDistance">0,00 km</strong>
+          </div>
+          <div class="metric">
+            <span>Tempo total</span>
+            <strong id="totalTime">0min</strong>
+          </div>
+          <div class="metric">
+            <span>Velocidade média</span>
+            <strong id="avgSpeed">0,00 km/h</strong>
+          </div>
+          <div class="metric">
+            <span>Fator aplicado</span>
+            <strong id="factorLabel">× 1,10</strong>
+          </div>
+        </div>
+      </aside>
+
+      <section class="card">
+        <div class="card-inner">
+          <h2 class="section-title">Minutos por velocidade</h2>
+
+          <div class="settings">
+            <div>
+              <label for="correction">Fator de correção</label>
+              <input id="correction" class="minute-input" type="text" inputmode="decimal" value="1,1" />
+              <div class="hint">Use 1 para não corrigir. Use 1,1 para aumentar 10%.</div>
+            </div>
+
+            <div>
+              <label>Uso</label>
+              <div class="hint">
+                Os botões maiores somam/tiram 1min. Os menores somam 30s ou 15s.
+                Você também pode digitar direto no campo.
+              </div>
+            </div>
+          </div>
+
+          <div class="speed-grid" id="speedGrid"></div>
+
+          <div class="other-box">
+            <div>
+              <label for="otherSpeed">Outro km/h</label>
+              <input id="otherSpeed" class="minute-input" type="text" inputmode="decimal" value="12" />
+            </div>
+
+            <div>
+              <label for="otherMinutes">Minutos</label>
+              <input id="otherMinutes" class="minute-input" type="text" inputmode="decimal" value="0" />
+            </div>
+
+            <button class="step-btn" onclick="changeOtherMinutes(1)">+</button>
+            <button class="step-btn" onclick="changeOtherMinutes(-1)">−</button>
+
+            <button class="other-add" onclick="addOtherSegment()">Adicionar</button>
+
+            <div class="other-extra-actions">
+              <button class="mini-btn" onclick="changeOtherMinutes(0.5)">+30s</button>
+              <button class="mini-btn" onclick="changeOtherMinutes(0.25)">+15s</button>
+            </div>
+          </div>
+
+          <div class="live-panel">
+            <div class="live-box">
+              <span>Digitado agora</span>
+              <strong id="draftRawDistance">0,00 km</strong>
+            </div>
+            <div class="live-box">
+              <span>Corrigido agora</span>
+              <strong id="draftCorrectedDistance">0,00 km</strong>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button onclick="addFilledSegments()">Adicionar campos fixos</button>
+            <button class="secondary" onclick="zeroInputs()">Zerar campos fixos</button>
+            <button class="danger" onclick="clearAll()">Limpar corrida</button>
+          </div>
+
+          <div id="tableContainer"></div>
+        </div>
+      </section>
+    </section>
+
+    <footer>App local, sem login, sem banco e sem salvar dados.</footer>
+  </main>
+
+  <script>
+    const defaultSpeeds = [5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
+    let segments = [];
+
+    const speedGrid = document.getElementById("speedGrid");
+    const correctionInput = document.getElementById("correction");
+    const otherSpeedInput = document.getElementById("otherSpeed");
+    const otherMinutesInput = document.getElementById("otherMinutes");
+
+    function parsePtNumber(value) {
+      const parsed = Number(String(value || "0").replace(",", "."));
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function numberToPt(value, digits = 2) {
+      return value.toFixed(digits).replace(".", ",");
+    }
+
+    function formatKm(value, digits = 3) {
+      return numberToPt(value, digits) + " km";
+    }
+
+    function formatSpeed(value) {
+      const digits = Number.isInteger(value) ? 0 : 1;
+      return numberToPt(value, digits);
+    }
+
+    function inputValue(value) {
+      if (Math.abs(value - Math.round(value)) < 0.0001) return String(Math.round(value));
+      return numberToPt(value, 2);
+    }
+
+    function formatTimeFromMinutes(totalMinutes) {
+      const totalSeconds = Math.round(totalMinutes * 60);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+
+      if (seconds === 0) return `${minutes}min`;
+      return `${minutes}min ${seconds}s`;
+    }
+
+    function getCorrectionFactor() {
+      const factor = parsePtNumber(correctionInput.value);
+      return factor > 0 ? factor : 1;
+    }
+
+    function getInputBySpeed(speed) {
+      return document.getElementById(`minutes-${String(speed).replace(".", "-")}`);
+    }
+
+    function createSpeedRows() {
+      speedGrid.innerHTML = defaultSpeeds.map(speed => {
+        const id = `minutes-${String(speed).replace(".", "-")}`;
+
+        return `
+          <div class="speed-row">
+            <div class="speed-label">
+              ${formatSpeed(speed)}
+              <small>km/h</small>
+            </div>
+
+            <input id="${id}" class="minute-input live-input" type="text" inputmode="decimal" value="0" />
+
+            <button class="step-btn" onclick="changeMinutes(${speed}, 1)">+</button>
+            <button class="step-btn" onclick="changeMinutes(${speed}, -1)">−</button>
+            <button class="mini-btn" onclick="changeMinutes(${speed}, 0.5)">+30s</button>
+            <button class="mini-btn" onclick="changeMinutes(${speed}, 0.25)">+15s</button>
+          </div>
+        `;
+      }).join("");
+
+      document.querySelectorAll(".live-input").forEach(input => {
+        input.addEventListener("input", render);
+      });
+    }
+
+    function changeMinutes(speed, amount) {
+      const input = getInputBySpeed(speed);
+      const current = parsePtNumber(input.value);
+      const next = Math.max(0, current + amount);
+
+      input.value = inputValue(next);
+      render();
+    }
+
+    function changeOtherMinutes(amount) {
+      const current = parsePtNumber(otherMinutesInput.value);
+      const next = Math.max(0, current + amount);
+
+      otherMinutesInput.value = inputValue(next);
+      render();
+    }
+
+    function segmentDistanceKm(minutes, speed) {
+      return speed * (minutes / 60);
+    }
+
+    function readFixedDraftSegments() {
+      const draftSegments = [];
+
+      for (const speed of defaultSpeeds) {
+        const input = getInputBySpeed(speed);
+        const minutes = parsePtNumber(input.value);
+
+        if (minutes > 0) {
+          draftSegments.push({ minutes, speed });
+        }
+      }
+
+      return draftSegments;
+    }
+
+    function readOtherDraftSegment() {
+      const otherMinutes = parsePtNumber(otherMinutesInput.value);
+      const otherSpeed = parsePtNumber(otherSpeedInput.value);
+
+      if (otherMinutes > 0 && otherSpeed > 0) {
+        return { minutes: otherMinutes, speed: otherSpeed };
+      }
+
+      return null;
+    }
+
+    function addFilledSegments() {
+      const draftSegments = readFixedDraftSegments();
+
+      if (!draftSegments.length) {
+        alert("Informe ao menos um campo fixo com minutos.");
+        return;
+      }
+
+      segments.push(...draftSegments);
+      zeroInputs();
+      render();
+    }
+
+    function addOtherSegment() {
+      const otherSegment = readOtherDraftSegment();
+
+      if (!otherSegment) {
+        alert("Informe minutos e velocidade no campo Outro.");
+        return;
+      }
+
+      segments.push(otherSegment);
+      otherMinutesInput.value = "0";
+      otherSpeedInput.value = "12";
+      render();
+    }
+
+    function zeroInputs() {
+      for (const speed of defaultSpeeds) {
+        getInputBySpeed(speed).value = "0";
+      }
+
+      render();
+    }
+
+    function removeSegment(index) {
+      segments.splice(index, 1);
+      render();
+    }
+
+    function clearAll() {
+      if (!segments.length) return;
+      if (!confirm("Limpar a corrida inteira?")) return;
+
+      segments = [];
+      render();
+    }
+
+    function sumSegments(segmentList) {
+      let rawDistance = 0;
+      let totalMinutes = 0;
+
+      for (const segment of segmentList) {
+        rawDistance += segmentDistanceKm(segment.minutes, segment.speed);
+        totalMinutes += segment.minutes;
+      }
+
+      return { rawDistance, totalMinutes };
+    }
+
+    function render() {
+      const factor = getCorrectionFactor();
+      const fixedDraftSegments = readFixedDraftSegments();
+      const otherDraftSegment = readOtherDraftSegment();
+      const draftSegments = otherDraftSegment ? [...fixedDraftSegments, otherDraftSegment] : fixedDraftSegments;
+
+      const saved = sumSegments(segments);
+      const draft = sumSegments(draftSegments);
+
+      const totalRawDistance = saved.rawDistance + draft.rawDistance;
+      const totalMinutes = saved.totalMinutes + draft.totalMinutes;
+      const correctedDistance = totalRawDistance * factor;
+      const totalHours = totalMinutes / 60;
+      const avgSpeed = totalHours > 0 ? totalRawDistance / totalHours : 0;
+
+      document.getElementById("correctedDistance").textContent = numberToPt(correctedDistance, 2);
+      document.getElementById("rawDistance").textContent = formatKm(totalRawDistance, 2);
+      document.getElementById("totalTime").textContent = formatTimeFromMinutes(totalMinutes);
+      document.getElementById("avgSpeed").textContent = numberToPt(avgSpeed, 2) + " km/h";
+      document.getElementById("factorLabel").textContent = "× " + numberToPt(factor, 2);
+
+      document.getElementById("draftRawDistance").textContent = formatKm(draft.rawDistance, 2);
+      document.getElementById("draftCorrectedDistance").textContent = formatKm(draft.rawDistance * factor, 2);
+
+      const angle = Math.min(correctedDistance / 10, 1) * 360;
+      document.getElementById("watchRing").style.setProperty("--angle", `${angle}deg`);
+
+      renderTable(factor);
+    }
+
+    function renderTable(factor) {
+      const container = document.getElementById("tableContainer");
+
+      if (!segments.length) {
+        container.innerHTML = '<div class="empty">Nenhum trecho adicionado ainda. O painel já considera o que você está digitando antes de adicionar.</div>';
+        return;
+      }
+
+      const rows = segments.map((segment, index) => {
+        const raw = segmentDistanceKm(segment.minutes, segment.speed);
+        const corrected = raw * factor;
+
+        return `
+          <tr>
+            <td class="numeric">${index + 1}</td>
+            <td class="numeric">${formatTimeFromMinutes(segment.minutes)}</td>
+            <td class="numeric">${formatSpeed(segment.speed)} km/h</td>
+            <td class="numeric">${formatKm(raw)}</td>
+            <td class="numeric">${formatKm(corrected)}</td>
+            <td><button class="delete-btn" onclick="removeSegment(${index})">Excluir</button></td>
+          </tr>
+        `;
+      }).join("");
+
+      container.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Tempo</th>
+                <th>Velocidade</th>
+                <th>Distância</th>
+                <th>Corrigida</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    correctionInput.addEventListener("input", render);
+    otherSpeedInput.addEventListener("input", render);
+    otherMinutesInput.addEventListener("input", render);
+
+    createSpeedRows();
+    render();
+  </script>
+</body>
+</html>
