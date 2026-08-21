@@ -4,6 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Esteira Real</title>
+
+  <!-- ESTEIRA_REAL_PWA -->
+  <meta name="theme-color" content="#070b12" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Esteira Real" />
+  <meta name="description" content="Calcule a distância real da esteira com fator de correção por velocidade e tempo." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon-192.png" sizes="192x192" type="image/png" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
   <style>
     :root {
       --bg: #070b12;
@@ -871,5 +882,6 @@
     createSpeedRows();
     render();
   </script>
+\n  <script id="esteira-real-pwa">\n    (() => {\n      if ('serviceWorker' in navigator) {\n        window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js'));\n      }\n      let deferredPrompt = null;\n      const button = document.createElement('button');\n      button.type = 'button';\n      button.textContent = 'Instalar app';\n      button.setAttribute('aria-label', 'Instalar Esteira Real');\n      Object.assign(button.style, {\n        display: 'none', position: 'fixed', right: '18px', bottom: '18px', zIndex: '9999',\n        border: '0', borderRadius: '999px', padding: '12px 16px', fontWeight: '800',\n        color: '#06101d', background: 'linear-gradient(135deg,#00e0ff,#5cffb1)',\n        boxShadow: '0 10px 30px rgba(0,0,0,.35)', cursor: 'pointer'\n      });\n      document.body.appendChild(button);\n      window.addEventListener('beforeinstallprompt', (event) => {\n        event.preventDefault();\n        deferredPrompt = event;\n        button.style.display = 'block';\n      });\n      button.addEventListener('click', async () => {\n        if (!deferredPrompt) return;\n        deferredPrompt.prompt();\n        await deferredPrompt.userChoice;\n        deferredPrompt = null;\n        button.style.display = 'none';\n      });\n      window.addEventListener('appinstalled', () => { button.style.display = 'none'; });\n      if (window.matchMedia('(display-mode: standalone)').matches) button.style.display = 'none';\n    })();\n  </script>\n
 </body>
 </html>
