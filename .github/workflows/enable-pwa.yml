@@ -17,88 +17,73 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Add PWA files and hooks
+      - name: Repair PWA install script
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import json, math, struct, zlib
 
-          root = Path('.')
-          index_path = root / 'index.html'
-          html = index_path.read_text(encoding='utf-8')
+          path = Path('index.html')
+          html = path.read_text(encoding='utf-8')
 
-          if '<!-- ESTEIRA_REAL_PWA -->' not in html:
-              head_injection = '''\n  <!-- ESTEIRA_REAL_PWA -->\n  <meta name="theme-color" content="#070b12" />\n  <meta name="mobile-web-app-capable" content="yes" />\n  <meta name="apple-mobile-web-app-capable" content="yes" />\n  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />\n  <meta name="apple-mobile-web-app-title" content="Esteira Real" />\n  <meta name="description" content="Calcule a distância real da esteira com fator de correção por velocidade e tempo." />\n  <link rel="manifest" href="./manifest.webmanifest" />\n  <link rel="icon" href="./icon-192.png" sizes="192x192" type="image/png" />\n  <link rel="apple-touch-icon" href="./icon-192.png" />\n'''
-              html = html.replace('  <title>Esteira Real</title>\n', '  <title>Esteira Real</title>\n' + head_injection, 1)
+          good_script = '''
+  <script id="esteira-real-pwa">
+    (() => {
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js'));
+      }
+      let deferredPrompt = null;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'Instalar app';
+      button.setAttribute('aria-label', 'Instalar Esteira Real');
+      Object.assign(button.style, {
+        display: 'none', position: 'fixed', right: '18px', bottom: '18px', zIndex: '9999',
+        border: '0', borderRadius: '999px', padding: '12px 16px', fontWeight: '800',
+        color: '#06101d', background: 'linear-gradient(135deg,#00e0ff,#5cffb1)',
+        boxShadow: '0 10px 30px rgba(0,0,0,.35)', cursor: 'pointer'
+      });
+      document.body.appendChild(button);
+      window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        deferredPrompt = event;
+        button.style.display = 'block';
+      });
+      button.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        button.style.display = 'none';
+      });
+      window.addEventListener('appinstalled', () => { button.style.display = 'none'; });
+      if (window.matchMedia('(display-mode: standalone)').matches) button.style.display = 'none';
+    })();
+  </script>
+'''
 
-              pwa_script = r'''\n  <script id="esteira-real-pwa">\n    (() => {\n      if ('serviceWorker' in navigator) {\n        window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js'));\n      }\n      let deferredPrompt = null;\n      const button = document.createElement('button');\n      button.type = 'button';\n      button.textContent = 'Instalar app';\n      button.setAttribute('aria-label', 'Instalar Esteira Real');\n      Object.assign(button.style, {\n        display: 'none', position: 'fixed', right: '18px', bottom: '18px', zIndex: '9999',\n        border: '0', borderRadius: '999px', padding: '12px 16px', fontWeight: '800',\n        color: '#06101d', background: 'linear-gradient(135deg,#00e0ff,#5cffb1)',\n        boxShadow: '0 10px 30px rgba(0,0,0,.35)', cursor: 'pointer'\n      });\n      document.body.appendChild(button);\n      window.addEventListener('beforeinstallprompt', (event) => {\n        event.preventDefault();\n        deferredPrompt = event;\n        button.style.display = 'block';\n      });\n      button.addEventListener('click', async () => {\n        if (!deferredPrompt) return;\n        deferredPrompt.prompt();\n        await deferredPrompt.userChoice;\n        deferredPrompt = null;\n        button.style.display = 'none';\n      });\n      window.addEventListener('appinstalled', () => { button.style.display = 'none'; });\n      if (window.matchMedia('(display-mode: standalone)').matches) button.style.display = 'none';\n    })();\n  </script>\n'''
-              html = html.replace('</body>', pwa_script + '\n</body>', 1)
-              index_path.write_text(html, encoding='utf-8')
+          malformed_start = html.find(r'\n  <script id="esteira-real-pwa">\n')
+          if malformed_start != -1:
+              malformed_end_marker = r'  </script>\n'
+              malformed_end = html.find(malformed_end_marker, malformed_start)
+              if malformed_end != -1:
+                  malformed_end += len(malformed_end_marker)
+                  html = html[:malformed_start] + good_script + html[malformed_end:]
+          elif '<script id="esteira-real-pwa">' not in html:
+              html = html.replace('</body>', good_script + '\n</body>', 1)
 
-          manifest = {
-              'id': './',
-              'name': 'Esteira Real',
-              'short_name': 'Esteira Real',
-              'description': 'Calcule a distância real da esteira com fator de correção por velocidade e tempo.',
-              'lang': 'pt-BR',
-              'start_url': './',
-              'scope': './',
-              'display': 'standalone',
-              'orientation': 'portrait-primary',
-              'background_color': '#070b12',
-              'theme_color': '#070b12',
-              'categories': ['fitness', 'utilities'],
-              'icons': [
-                  {'src': './icon-192.png', 'sizes': '192x192', 'type': 'image/png', 'purpose': 'any maskable'},
-                  {'src': './icon-512.png', 'sizes': '512x512', 'type': 'image/png', 'purpose': 'any maskable'}
-              ]
-          }
-          (root / 'manifest.webmanifest').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-
-          sw = '''const CACHE_NAME = "esteira-real-pwa-v1";\nconst APP_SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];\nself.addEventListener("install", event => { event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))); self.skipWaiting(); });\nself.addEventListener("activate", event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)))).then(() => self.clients.claim())); });\nself.addEventListener("fetch", event => {\n  if (event.request.method !== "GET") return;\n  if (event.request.mode === "navigate") {\n    event.respondWith(fetch(event.request).then(response => { const copy = response.clone(); caches.open(CACHE_NAME).then(cache => cache.put("./index.html", copy)); return response; }).catch(() => caches.match("./index.html")));\n    return;\n  }\n  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request).then(response => { const copy = response.clone(); caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)); return response; })));\n});\n'''
-          (root / 'service-worker.js').write_text(sw, encoding='utf-8')
-          (root / '.nojekyll').touch()
-
-          def write_png(path, size):
-              bg = (7, 11, 18, 255)
-              cyan = (0, 224, 255, 255)
-              green = (92, 255, 177, 255)
-              cx = cy = (size - 1) / 2
-              outer = size * 0.35
-              thick = max(5, size * 0.055)
-              inner = outer - thick
-              data = bytearray()
-              for y in range(size):
-                  data.append(0)
-                  for x in range(size):
-                      dx, dy = x - cx, y - cy
-                      r = math.hypot(dx, dy)
-                      px = bg
-                      if inner <= r <= outer:
-                          angle = (math.atan2(dy, dx) + math.pi * 2) % (math.pi * 2)
-                          px = green if angle < math.pi * 1.15 else cyan
-                      elif r < size * 0.055:
-                          px = green
-                      data.extend(px)
-              def chunk(kind, payload):
-                  return struct.pack('>I', len(payload)) + kind + payload + struct.pack('>I', zlib.crc32(kind + payload) & 0xffffffff)
-              png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', size, size, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(bytes(data), 9)) + chunk(b'IEND', b'')
-              Path(path).write_bytes(png)
-
-          write_png('icon-192.png', 192)
-          write_png('icon-512.png', 512)
+          path.write_text(html, encoding='utf-8')
           PY
 
-      - name: Commit generated PWA files
+      - name: Commit repair
         shell: bash
         run: |
-          if git diff --quiet && [ -z "$(git status --porcelain)" ]; then
-            echo "PWA already enabled."
+          if git diff --quiet; then
+            echo "Install script already valid."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- index.html manifest.webmanifest service-worker.js icon-192.png icon-512.png .nojekyll
-          git commit -m "Make Esteira Real installable as PWA"
+          git add -- index.html
+          git commit -m "Fix PWA install script"
           git push
