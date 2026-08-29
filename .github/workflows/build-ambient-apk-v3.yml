@@ -29,22 +29,21 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Restore previous Android project
+      - name: Restore working Android project
         shell: bash
         run: |
+          rm -rf ambient-android
+          mkdir -p ambient-android
           python3 - <<'PY'
-          from pathlib import Path
-          import re, base64, io, tarfile
-          src = Path('.github/workflows/build-ambient-apk-v2.yml').read_text(encoding='utf-8')
-          m = re.search(r"echo '([A-Za-z0-9+/=]+)' \| base64 -d \| tar -xz -C ambient-android", src)
+          import re, pathlib, base64
+          text = pathlib.Path('.github/workflows/build-ambient-apk.yml').read_text()
+          m = re.search(r"echo '([^']+)' \| base64 -d", text)
           if not m:
-              raise SystemExit('Embedded Android project not found')
-          data = base64.b64decode(m.group(1))
-          out = Path('ambient-android')
-          out.mkdir(exist_ok=True)
-          with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as tar:
-              tar.extractall(out)
+              raise SystemExit('Embedded project not found')
+          pathlib.Path('/tmp/ambient-project.tgz').write_bytes(base64.b64decode(m.group(1)))
           PY
+          tar -xzf /tmp/ambient-project.tgz -C ambient-android
+          sed -i 's/R\.mipmap\.ic_launcher/R.drawable.ic_launcher/g' ambient-android/app/src/main/java/com/appscaseiros/ambientscrobbler/MainActivity.java
 
       - name: Add autosave for settings
         shell: bash
@@ -96,3 +95,4 @@ jobs:
         with:
           name: ambient-scrobbler-apk-v1-0-1
           path: ambient-android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
