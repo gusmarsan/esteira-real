@@ -40,7 +40,7 @@ jobs:
           python3 - <<'PY'
           import re, pathlib, base64
           text = pathlib.Path('.github/workflows/build-ambient-apk.yml').read_text()
-          m = re.search(r"echo '([^']+)' \\| base64 -d", text)
+          m = re.search(r"echo '([^']+)' \| base64 -d", text)
           if not m:
               raise SystemExit('Embedded project not found')
           pathlib.Path('/tmp/ambient-project.tgz').write_bytes(base64.b64decode(m.group(1)))
