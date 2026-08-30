@@ -1,0 +1,251 @@
+--- ambient-src/app/src/main/java/com/appscaseiros/ambientscrobbler/MainActivity.java	2026-08-30 22:16:56.000000000 +0000
++++ ambient-src-fixed/app/src/main/java/com/appscaseiros/ambientscrobbler/MainActivity.java	2026-08-30 22:27:35.922887040 +0000
+@@ -32,7 +32,7 @@
+     private TextView lastFmState, intervalState, historyCount;
+     private ImageView artwork;
+     private ProgressBar micBar;
+-    private Button startButton, connectButton;
++    private Button startButton, listenNowButton, connectButton;
+ 
+     private EditText auddInput, apiKeyInput, secretInput, intervalInput, clipInput;
+     private LinearLayout historyList;
+@@ -61,6 +61,7 @@
+         registerStatusReceiver();
+         refreshHistory();
+         updateServiceButton();
++        refreshConfigurationState();
+     }
+ 
+     private void buildUi() {
+@@ -92,15 +93,15 @@
+         actions.setOrientation(LinearLayout.HORIZONTAL);
+ 
+         startButton = button("Iniciar", cGreen);
+-        Button listenNow = button("Ouvir agora", cBlue);
++        listenNowButton = button("Ouvir agora", cBlue);
+         actions.addView(startButton, new LinearLayout.LayoutParams(0, dp(48), 1));
+         LinearLayout.LayoutParams listenLp = new LinearLayout.LayoutParams(0, dp(48), 1);
+         listenLp.setMargins(dp(10), 0, 0, 0);
+-        actions.addView(listenNow, listenLp);
++        actions.addView(listenNowButton, listenLp);
+         root.addView(actions, lpMatchWrap(0, 0, 0, 14));
+ 
+         startButton.setOnClickListener(v -> toggleService());
+-        listenNow.setOnClickListener(v -> listenOnce());
++        listenNowButton.setOnClickListener(v -> listenOnce());
+ 
+         // Faixa atual
+         LinearLayout now = card(cCard);
+@@ -221,6 +222,13 @@
+ }
+ 
+     private void toggleService() {
++        saveSettingsSilently();
++        String configProblem = configurationProblem();
++        if (configProblem != null) {
++            showConfigurationNeeded(configProblem);
++            toast(configProblem);
++            return;
++        }
+         if (!hasMicPermission()) {
+             requestNeededPermissions();
+             toast("Autorize o microfone e tente de novo");
+@@ -240,12 +248,18 @@
+     }
+ 
+     private void listenOnce() {
++        saveSettingsSilently();
++        String configProblem = configurationProblem();
++        if (configProblem != null) {
++            showConfigurationNeeded(configProblem);
++            toast(configProblem);
++            return;
++        }
+         if (!hasMicPermission()) {
+             requestNeededPermissions();
+             toast("Autorize o microfone e tente de novo");
+             return;
+         }
+-        saveSettingsSilently();
+ 
+         Intent i = new Intent(this, ScrobbleService.class).setAction(ScrobbleService.ACTION_LISTEN_ONCE);
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i);
+@@ -272,6 +286,7 @@
+                 .apply();
+ 
+         intervalState.setText("Intervalo: " + interval + " s");
++        refreshConfigurationState();
+     }
+ 
+     private void loadSettings() {
+@@ -337,6 +352,7 @@
+                         connectButton.setEnabled(true);
+                         connectButton.setText("Conectado ✓");
+                         lastFmState.setText("Last.fm: " + name);
++                        refreshConfigurationState();
+                         toast("Last.fm conectado");
+                     });
+                 } catch (Exception e) {
+@@ -443,12 +459,66 @@
+ 
+     private void updateServiceButton() {
+         boolean running = prefs.getBoolean("service_running", false);
++        String configProblem = configurationProblem();
++
++        if (configProblem != null) {
++            startButton.setText("Iniciar");
++            startButton.setEnabled(false);
++            listenNowButton.setEnabled(false);
++            showConfigurationNeeded(configProblem);
++            return;
++        }
++
++        startButton.setEnabled(true);
++        listenNowButton.setEnabled(true);
+         startButton.setText(running ? "Pausar" : "Iniciar");
+-        if (!running && "PAUSADO".contentEquals(stageTitle.getText())) {
+-            stageDetail.setText("Clique em Iniciar para começar");
++
++        if (!running && ("PAUSADO".contentEquals(stageTitle.getText()) ||
++                "CONFIGURAÇÃO NECESSÁRIA".contentEquals(stageTitle.getText()) ||
++                "ERRO".contentEquals(stageTitle.getText()))) {
++            stageTitle.setText("PAUSADO");
++            stageTitle.setTextColor(cText);
++            stageDetail.setText("Tudo pronto. Toque em Iniciar para começar");
+         }
+     }
+ 
++    private String configurationProblem() {
++        if (prefs == null) return "Complete a configuração do app";
++        String audd = prefs.getString("audd_token", "").trim();
++        String apiKey = prefs.getString("lastfm_api_key", "").trim();
++        String secret = prefs.getString("lastfm_secret", "").trim();
++        String session = prefs.getString("lastfm_session_key", "").trim();
++
++        if (audd.isEmpty()) return "Adicione o token AudD nas configurações";
++        if (apiKey.isEmpty() || secret.isEmpty()) return "Preencha a API key e o shared secret do Last.fm";
++        if (session.isEmpty()) return "Conecte o Last.fm para começar";
++        return null;
++    }
++
++    private void refreshConfigurationState() {
++        if (startButton == null || listenNowButton == null || stageTitle == null) return;
++        String problem = configurationProblem();
++        if (problem != null) {
++            if (prefs.getBoolean("service_running", false)) {
++                prefs.edit().putBoolean("service_running", false).apply();
++                Intent stop = new Intent(this, ScrobbleService.class).setAction(ScrobbleService.ACTION_STOP);
++                try { startService(stop); } catch (Exception ignored) {}
++            }
++            showConfigurationNeeded(problem);
++            startButton.setText("Iniciar");
++            startButton.setEnabled(false);
++            listenNowButton.setEnabled(false);
++        } else {
++            updateServiceButton();
++        }
++    }
++
++    private void showConfigurationNeeded(String detail) {
++        stageTitle.setText("CONFIGURAÇÃO NECESSÁRIA");
++        stageTitle.setTextColor(cPurple);
++        stageDetail.setText(detail);
++    }
++
+     private void requestNeededPermissions() {
+         List<String> needed = new ArrayList<>();
+         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+@@ -559,6 +629,7 @@
+             loadSettings();
+             refreshHistory();
+             updateServiceButton();
++            refreshConfigurationState();
+         }
+     }
+ 
+--- ambient-src/app/src/main/java/com/appscaseiros/ambientscrobbler/ScrobbleService.java	2026-08-29 21:56:28.000000000 +0000
++++ ambient-src-fixed/app/src/main/java/com/appscaseiros/ambientscrobbler/ScrobbleService.java	2026-08-30 22:27:35.923106955 +0000
+@@ -49,6 +49,17 @@
+             return START_NOT_STICKY;
+         }
+ 
++        SharedPreferences settings = getSharedPreferences("settings", MODE_PRIVATE);
++        String configProblem = configurationProblem(settings);
++        if (configProblem != null) {
++            settings.edit().putBoolean("service_running", false).apply();
++            ensureForeground("Configuração necessária");
++            broadcast("CONFIGURAÇÃO NECESSÁRIA", configProblem, 0, null);
++            stopForeground(STOP_FOREGROUND_REMOVE);
++            stopSelf();
++            return START_NOT_STICKY;
++        }
++
+         ensureForeground("Ambient Scrobbler ativo");
+ 
+         if (ACTION_LISTEN_ONCE.equals(action)) {
+@@ -116,9 +127,15 @@
+             String session = p.getString("lastfm_session_key", "").trim();
+             int clip = clamp(p.getInt("clip_seconds", 12), 6, 12);
+ 
+-            if (audd.isEmpty()) throw new IllegalStateException("Configure o token AudD no app");
+-            if (apiKey.isEmpty() || secret.isEmpty() || session.isEmpty()) {
+-                throw new IllegalStateException("Conecte o Last.fm no app");
++            String configProblem = configurationProblem(p);
++            if (configProblem != null) {
++                running = false;
++                p.edit().putBoolean("service_running", false).apply();
++                broadcast("CONFIGURAÇÃO NECESSÁRIA", configProblem, 0, null);
++                updateNotification("Configuração necessária");
++                stopForeground(STOP_FOREGROUND_REMOVE);
++                stopSelf();
++                return;
+             }
+ 
+             broadcast("ESCUTANDO AGORA", "Microfone ativo por " + clip + " segundos", 0, null);
+@@ -250,6 +267,18 @@
+         }
+     }
+ 
++    private String configurationProblem(SharedPreferences p) {
++        String audd = p.getString("audd_token", "").trim();
++        String apiKey = p.getString("lastfm_api_key", "").trim();
++        String secret = p.getString("lastfm_secret", "").trim();
++        String session = p.getString("lastfm_session_key", "").trim();
++
++        if (audd.isEmpty()) return "Adicione o token AudD nas configurações";
++        if (apiKey.isEmpty() || secret.isEmpty()) return "Preencha a API key e o shared secret do Last.fm";
++        if (session.isEmpty()) return "Conecte o Last.fm para começar";
++        return null;
++    }
++
+     private static int clamp(int value, int min, int max) {
+         return Math.max(min, Math.min(max, value));
+     }
+--- ambient-src/app/build.gradle	2026-08-30 22:16:56.000000000 +0000
++++ ambient-src-fixed/app/build.gradle	2026-08-30 22:27:35.923246425 +0000
+@@ -7,11 +7,11 @@
+     compileSdk 35
+ 
+     defaultConfig {
+-        applicationId "com.appscaseiros.ambientscrobbler"
++        applicationId "com.appscaseiros.ambientscrobbler.redesign"
+         minSdk 26
+         targetSdk 35
+-        versionCode 2
+-        versionName "1.0.1"
++        versionCode 3
++        versionName "1.1.1"
+     }
+ 
+     compileOptions {
+--- ambient-src/app/src/main/AndroidManifest.xml	2026-08-29 22:07:56.000000000 +0000
++++ ambient-src-fixed/app/src/main/AndroidManifest.xml	2026-08-30 22:27:35.923337572 +0000
+@@ -10,7 +10,7 @@
+     <application
+         android:allowBackup="true"
+         android:icon="@drawable/ic_launcher"
+-        android:label="Ambient Scrobbler"
++        android:label="Ambient Scrobbler 1.1"
+         android:theme="@style/AppTheme">
+ 
+         <activity
