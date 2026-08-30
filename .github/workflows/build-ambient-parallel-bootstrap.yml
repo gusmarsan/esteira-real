@@ -1,0 +1,84 @@
+name: Build Ambient Scrobbler Parallel Bootstrap
+
+on:
+  push:
+    branches:
+      - chatgpt-ambient-apk
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Ensure Android SDK 35
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Restore Android project
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, tarfile, io
+          text = Path('.github/workflows/build-ambient-apk.yml').read_text(encoding='utf-8')
+          line = next((ln for ln in text.splitlines() if "base64 -d | tar -xz -C ambient-android" in ln), None)
+          if not line or "echo '" not in line:
+              raise SystemExit('Embedded Android source not found')
+          encoded = line.split("echo '", 1)[1].split("' | base64", 1)[0]
+          payload = base64.b64decode(encoded)
+          Path('ambient-android').mkdir(exist_ok=True)
+          with tarfile.open(fileobj=io.BytesIO(payload), mode='r:gz') as tar:
+              tar.extractall('ambient-android')
+          PY
+
+      - name: Prepare parallel v1.1 app
+        run: |
+          sed -i 's/R\.mipmap\.ic_launcher/R.drawable.ic_launcher/g' ambient-android/app/src/main/java/com/appscaseiros/ambientscrobbler/MainActivity.java
+          sed -i 's/applicationId "com\.appscaseiros\.ambientscrobbler"/applicationId "com.appscaseiros.ambientscrobbler.redesign"/' ambient-android/app/build.gradle
+          sed -i 's/versionName "[^"]*"/versionName "1.1.0"/' ambient-android/app/build.gradle
+          sed -i 's/android:label="Ambient Scrobbler"/android:label="Ambient Scrobbler 1.1"/' ambient-android/app/src/main/AndroidManifest.xml
+          grep -n "applicationId\|versionName" ambient-android/app/build.gradle
+          grep -n "android:label" ambient-android/app/src/main/AndroidManifest.xml
+
+      - name: Generate fixed test signing key
+        run: |
+          mkdir -p "$HOME/.android" signing
+          keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Apps Caseiros,C=BR"
+          cp "$HOME/.android/debug.keystore" signing/debug.keystore
+
+      - name: Build parallel APK
+        run: gradle --no-daemon -p ambient-android :app:assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambient-scrobbler-1-1-parallel-bootstrap-apk
+          path: ambient-android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Preserve signing key
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambient-scrobbler-1-1-signing-key
+          path: signing/debug.keystore
+          if-no-files-found: error
+          retention-days: 90
