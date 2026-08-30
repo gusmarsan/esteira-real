@@ -1,4 +1,4 @@
-name: Build Ambient Scrobbler Parallel
+name: Build Ambient Scrobbler Parallel v1.1.1
 
 on:
   push:
@@ -33,31 +33,22 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Restore Android project
-        shell: bash
+      - name: Restore Android source
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import base64, tarfile, io
-          text = Path('.github/workflows/build-ambient-apk.yml').read_text(encoding='utf-8')
-          line = next((ln for ln in text.splitlines() if "base64 -d | tar -xz -C ambient-android" in ln), None)
-          if not line or "echo '" not in line:
-              raise SystemExit('Embedded Android source not found')
-          encoded = line.split("echo '", 1)[1].split("' | base64", 1)[0]
-          payload = base64.b64decode(encoded)
-          Path('ambient-android').mkdir(exist_ok=True)
-          with tarfile.open(fileobj=io.BytesIO(payload), mode='r:gz') as tar:
-              tar.extractall('ambient-android')
-          PY
-
-      - name: Prepare parallel v1.1 app
-        run: |
-          sed -i 's/R\.mipmap\.ic_launcher/R.drawable.ic_launcher/g' ambient-android/app/src/main/java/com/appscaseiros/ambientscrobbler/MainActivity.java
-          sed -i 's/applicationId "com\.appscaseiros\.ambientscrobbler"/applicationId "com.appscaseiros.ambientscrobbler.redesign"/' ambient-android/app/build.gradle
-          sed -i 's/versionName "[^"]*"/versionName "1.1.0"/' ambient-android/app/build.gradle
-          sed -i 's/android:label="Ambient Scrobbler"/android:label="Ambient Scrobbler 1.1"/' ambient-android/app/src/main/AndroidManifest.xml
-          grep -n "applicationId\|versionName" ambient-android/app/build.gradle
-          grep -n "android:label" ambient-android/app/src/main/AndroidManifest.xml
+          rm -rf ambient-android
+          mkdir -p ambient-android
+          curl -L --fail \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/gusmarsan/esteira-real/actions/artifacts/9739840496/zip" \
+            -o ambient-source.zip
+          unzip -q ambient-source.zip -d ambient-android
+          patch -p1 -d ambient-android < .github/ambient-v1.1.1.patch
+          grep -n "versionCode\|versionName\|applicationId" ambient-android/app/build.gradle
+          grep -n "CONFIGURAÇÃO NECESSÁRIA" ambient-android/app/src/main/java/com/appscaseiros/ambientscrobbler/MainActivity.java
 
       - name: Restore fixed signing key
         env:
@@ -81,6 +72,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ambient-scrobbler-1-1-parallel-apk
+          name: ambient-scrobbler-1-1-1-parallel-apk
           path: ambient-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
