@@ -19,12 +19,16 @@ jobs:
           rm -rf ambient-android
           mkdir -p ambient-android
           python3 - <<'PY'
-          import re, pathlib, base64
+          import pathlib, base64
           text = pathlib.Path('.github/workflows/build-ambient-apk.yml').read_text()
-          m = re.search(r"echo '([^']+)' \\| base64 -d", text)
-          if not m:
+          encoded = None
+          for line in text.splitlines():
+              if "echo '" in line and 'base64 -d' in line:
+                  encoded = line.split("echo '", 1)[1].split("'", 1)[0]
+                  break
+          if not encoded:
               raise SystemExit('Embedded project not found')
-          pathlib.Path('/tmp/ambient-project.tgz').write_bytes(base64.b64decode(m.group(1)))
+          pathlib.Path('/tmp/ambient-project.tgz').write_bytes(base64.b64decode(encoded))
           PY
           tar -xzf /tmp/ambient-project.tgz -C ambient-android
           sed -i 's/R\.mipmap\.ic_launcher/R.drawable.ic_launcher/g' ambient-android/app/src/main/java/com/appscaseiros/ambientscrobbler/MainActivity.java
