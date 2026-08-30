@@ -1,0 +1,78 @@
+name: Export Ambient Scrobbler Android Source
+
+on:
+  push:
+    branches:
+      - chatgpt-ambient-apk
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore current Android project
+        shell: bash
+        run: |
+          rm -rf ambient-android
+          mkdir -p ambient-android
+          python3 - <<'PY'
+          import re, pathlib, base64
+          text = pathlib.Path('.github/workflows/build-ambient-apk.yml').read_text()
+          m = re.search(r"echo '([^']+)' \\| base64 -d", text)
+          if not m:
+              raise SystemExit('Embedded project not found')
+          pathlib.Path('/tmp/ambient-project.tgz').write_bytes(base64.b64decode(m.group(1)))
+          PY
+          tar -xzf /tmp/ambient-project.tgz -C ambient-android
+          sed -i 's/R\.mipmap\.ic_launcher/R.drawable.ic_launcher/g' ambient-android/app/src/main/java/com/appscaseiros/ambientscrobbler/MainActivity.java
+
+      - name: Apply v1.0.1 autosave fix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          main = Path('ambient-android/app/src/main/java/com/appscaseiros/ambientscrobbler/MainActivity.java')
+          text = main.read_text(encoding='utf-8')
+          if 'android.text.TextWatcher;' not in text:
+              text = text.replace('import android.text.InputType;\n','import android.text.InputType;\nimport android.text.Editable;\nimport android.text.TextWatcher;\n')
+          text = text.replace('        buildUi();\n        loadSettings();\n        requestNeededPermissions();','        buildUi();\n        loadSettings();\n        enableAutoSave();\n        requestNeededPermissions();')
+          if 'private void enableAutoSave()' not in text:
+              method = '''    private void enableAutoSave() {
+              TextWatcher watcher = new TextWatcher() {
+                  @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                  @Override public void onTextChanged(CharSequence s, int start, int before, int count) { saveSettingsSilently(); }
+                  @Override public void afterTextChanged(Editable s) {}
+              };
+              auddInput.addTextChangedListener(watcher);
+              apiKeyInput.addTextChangedListener(watcher);
+              secretInput.addTextChangedListener(watcher);
+              intervalInput.addTextChangedListener(watcher);
+              clipInput.addTextChangedListener(watcher);
+          }
+
+          '''
+              text = text.replace('    private void toggleService() {', method + '    private void toggleService() {')
+          if 'protected void onPause()' not in text:
+              pause = '''    @Override
+          protected void onPause() {
+              if (prefs != null && auddInput != null) { saveSettingsSilently(); }
+              super.onPause();
+          }
+
+          '''
+              text = text.replace('    @Override\n    protected void onResume() {', pause + '    @Override\n    protected void onResume() {')
+          main.write_text(text, encoding='utf-8')
+          build = Path('ambient-android/app/build.gradle')
+          b = build.read_text(encoding='utf-8').replace('versionCode 1','versionCode 2').replace('versionName "1.0.0"','versionName "1.0.1"')
+          build.write_text(b, encoding='utf-8')
+          PY
+
+      - name: Upload source
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambient-scrobbler-android-source-v1-0-1
+          path: ambient-android
+          if-no-files-found: error
