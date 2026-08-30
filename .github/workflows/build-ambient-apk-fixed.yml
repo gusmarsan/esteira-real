@@ -37,13 +37,14 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re, base64, tarfile, io
+          import base64, tarfile, io
 
           text = Path('.github/workflows/build-ambient-apk.yml').read_text(encoding='utf-8')
-          match = re.search(r"echo '([A-Za-z0-9+/=]+)' \\| base64 -d \\| tar -xz -C ambient-android", text)
-          if not match:
+          line = next((ln for ln in text.splitlines() if "base64 -d | tar -xz -C ambient-android" in ln), None)
+          if not line or "echo '" not in line:
               raise SystemExit('Embedded Android source not found in original workflow')
-          payload = base64.b64decode(match.group(1))
+          encoded = line.split("echo '", 1)[1].split("' | base64", 1)[0]
+          payload = base64.b64decode(encoded)
           Path('ambient-android').mkdir(exist_ok=True)
           with tarfile.open(fileobj=io.BytesIO(payload), mode='r:gz') as tar:
               tar.extractall('ambient-android')
