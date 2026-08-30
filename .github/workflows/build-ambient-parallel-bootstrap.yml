@@ -1,4 +1,4 @@
-name: Build Ambient Scrobbler Parallel Bootstrap
+name: Build Ambient Scrobbler Parallel
 
 on:
   push:
@@ -59,11 +59,21 @@ jobs:
           grep -n "applicationId\|versionName" ambient-android/app/build.gradle
           grep -n "android:label" ambient-android/app/src/main/AndroidManifest.xml
 
-      - name: Generate fixed test signing key
+      - name: Restore fixed signing key
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p "$HOME/.android" signing
-          keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Apps Caseiros,C=BR"
-          cp "$HOME/.android/debug.keystore" signing/debug.keystore
+          mkdir -p signing "$HOME/.android"
+          curl -L --fail \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/gusmarsan/esteira-real/actions/artifacts/9739827656/zip" \
+            -o signing-key.zip
+          unzip -q signing-key.zip -d signing
+          cp signing/debug.keystore "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
 
       - name: Build parallel APK
         run: gradle --no-daemon -p ambient-android :app:assembleDebug
@@ -71,14 +81,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ambient-scrobbler-1-1-parallel-bootstrap-apk
+          name: ambient-scrobbler-1-1-parallel-apk
           path: ambient-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
-      - name: Preserve signing key
-        uses: actions/upload-artifact@v4
-        with:
-          name: ambient-scrobbler-1-1-signing-key
-          path: signing/debug.keystore
-          if-no-files-found: error
-          retention-days: 90
